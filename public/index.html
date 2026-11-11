@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CRUD de Paises</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 700px; margin: 30px auto; }
+  table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+  th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+  th { background: #1a4d8f; color: #fff; }
+  input { padding: 6px; } button { padding: 6px 10px; cursor: pointer; }
+  #msg { color: #b00; }
+</style>
+</head>
+<body>
+<h1>CRUD de Paises</h1>
+<form id="form">
+  <input id="id" type="number" placeholder="ID" required>
+  <input id="desc" placeholder="Descripcion" maxlength="50" required>
+  <button type="submit" id="btn">Agregar</button>
+  <button type="button" onclick="limpiar()">Cancelar</button>
+</form>
+<p id="msg"></p>
+<table>
+  <thead><tr><th>ID</th><th>Descripcion</th><th>Acciones</th></tr></thead>
+  <tbody id="tabla"></tbody>
+</table>
+<script>
+let editando = null;
+const $ = id => document.getElementById(id);
+
+async function cargar() {
+  const paises = await (await fetch('/api/paises')).json();
+  $('tabla').innerHTML = paises.map(p => `
+    <tr><td>${p.pais_id}</td><td>${p.pais_descripcion}</td>
+    <td><button onclick="editar(${p.pais_id}, '${p.pais_descripcion.replace(/'/g, "\\'")}')">Editar</button>
+        <button onclick="borrar(${p.pais_id})">Borrar</button></td></tr>`).join('');
+}
+
+function editar(id, desc) {
+  editando = id; $('id').value = id; $('id').disabled = true;
+  $('desc').value = desc; $('btn').textContent = 'Guardar';
+}
+function limpiar() {
+  editando = null; $('form').reset(); $('id').disabled = false;
+  $('btn').textContent = 'Agregar'; $('msg').textContent = '';
+}
+async function borrar(id) {
+  if (!confirm('Borrar el pais ' + id + '?')) return;
+  const r = await fetch('/api/paises/' + id, { method: 'DELETE' });
+  $('msg').textContent = r.ok ? '' : (await r.json()).error;
+  cargar();
+}
+$('form').onsubmit = async e => {
+  e.preventDefault();
+  const body = { pais_id: Number($('id').value), pais_descripcion: $('desc').value };
+  const r = editando
+    ? await fetch('/api/paises/' + editando, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    : await fetch('/api/paises', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!r.ok) { $('msg').textContent = (await r.json()).error; return; }
+  limpiar(); cargar();
+};
+cargar();
+</script>
+</body>
+</html>
